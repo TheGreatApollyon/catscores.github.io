@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cluster Leaderboard</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 30px;
+        font-size: 2.5em;
+      }
+
+      .loading {
+        text-align: center;
+        color: #667eea;
+        font-size: 1.2em;
+        padding: 20px;
+      }
+
+      .error {
+        background: #fee;
+        color: #c33;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .leaderboard {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .leaderboard-item {
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 20px;
+        border-radius: 15px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .leaderboard-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .leaderboard-item.rank-1 {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+      }
+
+      .leaderboard-item.rank-2 {
+        background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+      }
+
+      .leaderboard-item.rank-3 {
+        background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+      }
+
+      .rank {
+        font-size: 2em;
+        font-weight: bold;
+        color: #333;
+        min-width: 50px;
+        text-align: center;
+      }
+
+      .cluster-name {
+        flex: 1;
+        font-size: 1.3em;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .points {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #667eea;
+        background: white;
+        padding: 10px 20px;
+        border-radius: 10px;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          padding: 20px;
+        }
+
+        h1 {
+          font-size: 1.8em;
+        }
+
+        .leaderboard-item {
+          padding: 15px;
+        }
+
+        .rank {
+          font-size: 1.5em;
+          min-width: 40px;
+        }
+
+        .cluster-name {
+          font-size: 1.1em;
+        }
+
+        .points {
+          font-size: 1.2em;
+          padding: 8px 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🏆 Cluster Leaderboard</h1>
+      <div id="loading" class="loading">Loading data...</div>
+      <div id="error" class="error" style="display: none"></div>
+      <div id="leaderboard" class="leaderboard"></div>
+    </div>
+
+    <script>
+      const SPREADSHEET_ID = "1_Gh790zYV_xquIX9qIf9KZ_vFqaLOTlrMx-6cvUVjQE";
+      const GID = "0";
+      // Use CSV export which doesn't have CORS issues
+      const URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GID}`;
+
+      async function fetchLeaderboardData() {
+        const loadingEl = document.getElementById("loading");
+        const errorEl = document.getElementById("error");
+
+        try {
+          const response = await fetch(URL);
+          const text = await response.text();
+
+          // Parse CSV
+          const lines = text.trim().split("\n");
+
+          // Skip header row and parse data
+          const leaderboardData = [];
+          for (let i = 1; i < lines.length; i++) {
+            const [cluster, points] = lines[i].split(",");
+            if (cluster && points) {
+              leaderboardData.push({
+                cluster: cluster.trim().replace(/^"|"$/g, ""),
+                points: parseInt(points.trim()) || 0,
+              });
+            }
+          }
+
+          // Sort by points in descending order
+          leaderboardData.sort((a, b) => b.points - a.points);
+
+          // Display the leaderboard
+          displayLeaderboard(leaderboardData);
+
+          loadingEl.style.display = "none";
+          errorEl.style.display = "none";
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          loadingEl.style.display = "none";
+          errorEl.style.display = "block";
+          errorEl.textContent =
+            "Failed to load leaderboard data. Please make sure the spreadsheet is publicly accessible.";
+        }
+      }
+
+      function displayLeaderboard(data) {
+        const leaderboardEl = document.getElementById("leaderboard");
+        leaderboardEl.innerHTML = "";
+
+        data.forEach((item, index) => {
+          const rank = index + 1;
+          const itemEl = document.createElement("div");
+          itemEl.className = `leaderboard-item rank-${
+            rank <= 3 ? rank : "other"
+          }`;
+
+          const rankEmoji =
+            rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
+
+          itemEl.innerHTML = `
+                    <div class="rank">${rankEmoji}</div>
+                    <div class="cluster-name">${item.cluster}</div>
+                    <div class="points">${item.points}</div>
+                `;
+
+          leaderboardEl.appendChild(itemEl);
+        });
+      }
+
+      // Fetch data when page loads
+      fetchLeaderboardData();
+    </script>
+  </body>
+</html>
